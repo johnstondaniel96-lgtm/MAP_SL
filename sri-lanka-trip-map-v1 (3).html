@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sri Lanka trip map v1.0</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1EE; --panel:#FFFFFF; --panel2:#F5F7F5; --ink:#16231C; --muted:#5A6A61; --line:#D7DED9;
+  --tea:#1F5A43; --good:#2E8B57; --mixed:#D49B1A; --wet:#2F6A93; --dry:#E0A526;
+  --focus:#1F5A43; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#101713;--panel:#17201B;--panel2:#1D2822;--ink:#E6ECE8;--muted:#9AABA1;--line:#2C3A33;
+  --tea:#6FC39A;--good:#5CC08A;--mixed:#E9B949;--wet:#6FA8D6;--dry:#E9B949;--focus:#6FC39A;color-scheme:dark;}
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 "Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{display:grid;grid-template-columns:400px 1fr;height:100%}
+aside{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;display:flex;flex-direction:column}
+#map{height:100%;width:100%}
+header.top{padding:20px 20px 14px;border-bottom:1px solid var(--line)}
+h1{font-family:"Young Serif",Georgia,serif;font-weight:400;font-size:26px;line-height:1.15;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin:0}
+.totals{display:flex;gap:10px;margin-top:14px}
+.tot{flex:1;background:var(--panel2);border-radius:10px;padding:8px 10px}
+.tot b{display:block;font-size:20px;font-weight:600}
+.tot span{font-size:12px;color:var(--muted)}
+.tot.ok b{color:var(--good)} .tot.warn b{color:var(--mixed)}
+section{padding:14px 20px;border-bottom:1px solid var(--line)}
+h2{font-size:14px;font-weight:600;margin:0 0 10px}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink);font:inherit;font-size:13px;padding:7px 4px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--tea);color:#fff}
+@media (prefers-color-scheme:dark){.seg button[aria-pressed="true"]{color:#0E1511}}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:12px;color:var(--muted)}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;border:3px solid;vertical-align:-1px;margin-right:4px;background:var(--panel)}
+.note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:13px}
+.checks label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.zone{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--panel)}
+.zone.off{opacity:.55}
+.zone.dragover{outline:2px dashed var(--tea)}
+.zhead{display:flex;align-items:center;gap:8px;padding:8px 10px}
+.grip{cursor:grab;color:var(--muted);font-size:16px;user-select:none;padding:0 2px}
+.seq{width:22px;height:22px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center;flex:none}
+.zname{flex:1;min-width:0;background:none;border:0;color:var(--ink);font:inherit;font-weight:600;text-align:left;cursor:pointer;padding:0}
+.zname small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.nights{display:flex;align-items:center;gap:2px}
+.nights button,.mv button,.iconbtn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);width:24px;height:24px;border-radius:6px;cursor:pointer;font:inherit;line-height:1;padding:0}
+.nights output{min-width:26px;text-align:center;font-weight:600}
+.mv{display:flex;flex-direction:column;gap:2px}
+.mv button{height:15px;width:20px;font-size:9px}
+.zbody{padding:0 12px 12px 12px;font-size:13px;display:none}
+.zone.open .zbody{display:block}
+.pill{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:20px;margin-right:4px;border:1px solid}
+.pill.g{color:var(--good);border-color:var(--good)} .pill.m{color:var(--mixed);border-color:var(--mixed)} .pill.w{color:var(--wet);border-color:var(--wet)}
+table.sl{width:100%;border-collapse:collapse;margin-top:8px}
+table.sl td{padding:4px 4px;border-top:1px solid var(--line);vertical-align:top}
+table.sl td:nth-child(2),table.sl td:nth-child(3){white-space:nowrap;color:var(--muted);text-align:right}
+table.sl button{background:none;border:0;color:var(--ink);font:inherit;text-align:left;padding:0;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.leg{font-size:12.5px;border-left:3px solid var(--line);padding:4px 0 4px 10px;margin:6px 0 0}
+.leg b{font-weight:600}
+.legs .leg{margin:0 0 8px}
+footer.tools{padding:14px 20px 24px;display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:inherit;font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer}
+.btn.primary{background:var(--tea);border-color:var(--tea);color:#fff}
+@media (prefers-color-scheme:dark){.btn.primary{color:#0E1511}}
+button:focus-visible,input:focus-visible,label:focus-within{outline:2px solid var(--focus);outline-offset:2px}
+.hubicon{border-radius:50%;color:#fff;font:700 12px/1 "Instrument Sans",sans-serif;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.hubicon.off{background:#9aa8a0!important;opacity:.8}
+.leaflet-popup-content{font:13px/1.45 "Instrument Sans",system-ui,sans-serif;margin:12px 14px}
+.leaflet-popup-content h3{font-family:"Young Serif",Georgia,serif;font-weight:400;font-size:17px;margin:0 0 4px}
+.leaflet-popup-content p{margin:4px 0}
+.pp-muted{color:#5A6A61}
+.mlabel{background:transparent;border:0;box-shadow:none;font:600 12px "Instrument Sans",sans-serif;color:#16231C;text-shadow:0 0 3px #fff,0 0 3px #fff}
+@media (max-width:820px){
+  .app{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto}
+  #mapwrap{order:-1;height:55vh;position:sticky;top:0;z-index:5}
+  aside{border-right:0;overflow:visible}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<!--
+=====================================================================
+  HOW TO EDIT THIS MAP
+  All trip content lives in the TRIP object inside the <script> below.
+  - zones:  accommodation bases. Change nights, colour, included (true/false),
+            or delete a whole zone object. Order in the list = default itinerary order.
+  - sights: places of interest. "zone" links a sight to a base.
+            fee: null until verified, then e.g. fee:{gbp:28, usd:35, source:"...", url:"...", checked:"2027-02-01"}
+  - legs:   travel between bases (either direction). cost: null until verified.
+  Changes made in the side panel (order, nights, on/off) are saved in this
+  browser. Use "Export plan" to keep a copy; "Reset" returns to the file defaults.
+=====================================================================
+-->
+<div class="app">
+  <aside aria-label="Trip planner">
+    <header class="top">
+      <h1>Sri Lanka, early 2028</h1>
+      <p class="sub">2 adults, 14–15 nights. Map v1.0 – overview and draft bases for review.</p>
+      <div class="totals">
+        <div class="tot" id="totNights"><b>0</b><span>nights planned</span></div>
+        <div class="tot"><b id="totZones">0</b><span>bases included</span></div>
+        <div class="tot"><b id="totCost">–</b><span id="totCostLbl">verified costs</span></div>
+      </div>
+    </header>
+
+    <section aria-labelledby="h-season">
+      <h2 id="h-season">Weather view</h2>
+      <div class="seg" role="group" aria-label="Month">
+        <button data-month="jan">Jan</button><button data-month="feb">Feb</button><button data-month="mar">Mar</button><button data-month="maysep">May–Sep</button>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="border-color:var(--good)"></i>Good</span>
+        <span><i class="dot" style="border-color:var(--mixed)"></i>Mixed</span>
+        <span><i class="dot" style="border-color:var(--wet)"></i>Wet</span>
+      </div>
+      <p class="note" id="seasonNote"></p>
+    </section>
+
+    <section aria-labelledby="h-layers">
+      <h2 id="h-layers">Show on map</h2>
+      <div class="checks" id="layerChecks"></div>
+    </section>
+
+    <section aria-labelledby="h-zones">
+      <h2 id="h-zones">Bases (drag or use arrows to reorder)</h2>
+      <div id="zoneList"></div>
+    </section>
+
+    <section aria-labelledby="h-legs" class="legs">
+      <h2 id="h-legs">Travel between bases</h2>
+      <div id="legList"></div>
+    </section>
+
+    <footer class="tools">
+      <button class="btn primary" id="btnExport">Export plan</button>
+      <button class="btn" id="btnImport">Import plan</button>
+      <button class="btn" id="btnFit">Fit map to plan</button>
+      <button class="btn" id="btnReset">Reset to defaults</button>
+      <input type="file" id="fileIn" accept="application/json" hidden>
+    </footer>
+  </aside>
+  <div id="mapwrap"><div id="map" role="application" aria-label="Map of Sri Lanka"></div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ==================================================================
+   TRIP DATA – edit here
+   Travel times are approximate planning figures and will be checked
+   in the pricing phase. Fees and costs are null until verified.
+   season codes: g = good, m = mixed, w = wet  (indicative climatology)
+   ================================================================== */
+const TRIP = {
+  version: "1.0",
+  target: { min: 14, max: 15 },
+  airport: { name: "Bandaranaike International Airport (CMB)", lat: 7.1808, lng: 79.8841 },
+
+  zones: [
+    { id:"NEG", name:"Negombo (arrival)", hub:"Negombo", lat:7.2083, lng:79.8358, nights:1, included:true, color:"#5B6C8F",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"w"}, note:"20–30 min from the airport. Useful for a late arrival or early departure." },
+    { id:"CT",  name:"Cultural Triangle", hub:"Sigiriya / Habarana", lat:7.9520, lng:80.7550, nights:3, included:true, color:"#B5532C",
+      season:{jan:"m",feb:"g",mar:"g",maysep:"g"}, note:"Tail of the NE monsoon can bring showers in January; February–March is reliably drier. Minneriya elephant ‘Gathering’ peaks Jul–Sep, so fewer elephants in Jan–Mar." },
+    { id:"KAN", name:"Kandy", hub:"Kandy", lat:7.2906, lng:80.6337, nights:2, included:true, color:"#7A4E9C",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"m"}, note:"Start of the scenic hill-country rail line. Afternoon storms become more likely from late March." },
+    { id:"NUW", name:"Nuwara Eliya", hub:"Nuwara Eliya", lat:6.9497, lng:80.7891, nights:1, included:true, color:"#2C7F86",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"w"}, note:"Main dry season Jan–Mar, but cool – nights can drop to single figures °C. Nearest station is Nanu Oya." },
+    { id:"ELL", name:"Ella", hub:"Ella", lat:6.8667, lng:81.0466, nights:2, included:true, color:"#3F8A3A",
+      season:{jan:"m",feb:"g",mar:"g",maysep:"m"}, note:"East-facing Uva slopes can catch late NE monsoon showers into January." },
+    { id:"TIS", name:"Yala & Tissamaharama", hub:"Tissamaharama", lat:6.2870, lng:81.2870, nights:1, included:true, color:"#A0782A",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"g"}, note:"Yala Block 1 usually closes for part of Sep–Oct (dry-season closure) – not a risk for Jan–Mar." },
+    { id:"STH", name:"South coast", hub:"Mirissa / Weligama", lat:5.9483, lng:80.4716, nights:4, included:true, color:"#C2416B",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"w"}, note:"Peak season Dec–Apr. Whale watching season runs roughly Dec–Apr." },
+    { id:"COL", name:"Colombo", hub:"Colombo", lat:6.9271, lng:79.8612, nights:1, included:false, color:"#4D5B66",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"w"}, note:"Optional city stop, usually at the start or end of the trip." },
+    { id:"WST", name:"West coast (Bentota)", hub:"Bentota", lat:6.4211, lng:79.9989, nights:2, included:false, color:"#D2691E",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"w"}, note:"Calmer resort coast close to the airport; good final stop." },
+    { id:"ADM", name:"Adam’s Peak & Kitulgala", hub:"Dalhousie / Nallathanni", lat:6.8130, lng:80.5170, nights:1, included:false, color:"#6B5B95",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"w"}, note:"Pilgrimage season roughly Dec–May (path lit, stalls open). Climb starts ~02:00 for sunrise." },
+    { id:"SIN", name:"Udawalawe & Sinharaja", hub:"Udawalawe", lat:6.4400, lng:80.8880, nights:1, included:false, color:"#55752E",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"m"}, note:"Alternative or addition to Yala; Sinharaja rainforest is a long day trip from here." },
+    { id:"ANU", name:"Anuradhapura & Wilpattu", hub:"Anuradhapura", lat:8.3114, lng:80.4037, nights:2, included:false, color:"#8C3B3B",
+      season:{jan:"m",feb:"g",mar:"g",maysep:"g"}, note:"Oldest of the ancient capitals; Wilpattu is the quieter leopard park." },
+    { id:"KAL", name:"Kalpitiya", hub:"Kalpitiya", lat:8.2290, lng:79.7590, nights:2, included:false, color:"#1E7FA8",
+      season:{jan:"g",feb:"g",mar:"g",maysep:"m"}, note:"Dolphin season roughly Nov–Apr; kitesurf season (windy) May–Sep." },
+    { id:"TRI", name:"Trincomalee & east coast", hub:"Trincomalee / Nilaveli", lat:8.6400, lng:81.2000, nights:3, included:false, color:"#2A6F97",
+      season:{jan:"w",feb:"m",mar:"g",maysep:"g"}, note:"NE monsoon side. Wet in January, improving through February; best from March. Sea conditions can still be rough in Feb." },
+    { id:"ARU", name:"Arugam Bay", hub:"Arugam Bay", lat:6.8400, lng:81.8360, nights:2, included:false, color:"#0F8B8D",
+      season:{jan:"w",feb:"m",mar:"m",maysep:"g"}, note:"Surf season roughly Apr–Oct. Quiet and partly closed in Jan–Mar." },
+    { id:"JAF", name:"Jaffna & the north", hub:"Jaffna", lat:9.6615, lng:80.0255, nights:2, included:false, color:"#9C5B2E",
+      season:{jan:"m",feb:"g",mar:"g",maysep:"g"}, note:"Distinct Tamil culture and cuisine; long journey from the south." }
+  ],
+
+  sights: [
+    // Negombo
+    { id:"cmb", name:"Bandaranaike International Airport", zone:"NEG", cat:"transport", lat:7.1808, lng:79.8841, fromHub:"20–30 min", fee:null, feeSource:"n/a" },
+    { id:"neg-lagoon", name:"Negombo lagoon & fish market", zone:"NEG", cat:"city", lat:7.2100, lng:79.8380, fromHub:"In town", fee:null, feeSource:"Free / boat trips priced locally" },
+    // Colombo
+    { id:"galle-face", name:"Galle Face Green", zone:"COL", cat:"city", lat:6.9271, lng:79.8450, fromHub:"10 min", fee:null, feeSource:"Free" },
+    { id:"gangaramaya", name:"Gangaramaya Temple", zone:"COL", cat:"temple", lat:6.9167, lng:79.8563, fromHub:"10 min", fee:null, feeSource:"Temple (verify at gate)" },
+    { id:"nat-museum", name:"National Museum of Colombo", zone:"COL", cat:"heritage", lat:6.9101, lng:79.8608, fromHub:"10 min", fee:null, feeSource:"Department of National Museums" },
+    { id:"pettah", name:"Pettah markets & Red Mosque", zone:"COL", cat:"city", lat:6.9368, lng:79.8500, fromHub:"10 min", fee:null, feeSource:"Free" },
+    { id:"kelaniya", name:"Kelaniya Raja Maha Vihara", zone:"COL", cat:"temple", lat:6.9530, lng:79.9187, fromHub:"30–45 min", fee:null, feeSource:"Temple (verify)" },
+    // Cultural Triangle
+    { id:"sigiriya", name:"Sigiriya Rock Fortress", zone:"CT", cat:"heritage", lat:7.9570, lng:80.7603, fromHub:"10 min", visit:"3–4 h", fee:null, feeSource:"Central Cultural Fund", note:"UNESCO site. Go at opening to avoid heat and queues." },
+    { id:"pidurangala", name:"Pidurangala Rock", zone:"CT", cat:"scenic", lat:7.9660, lng:80.7570, fromHub:"10 min", visit:"2 h", fee:null, feeSource:"Temple ticket (verify)", note:"Sunrise viewpoint looking across to Sigiriya." },
+    { id:"dambulla", name:"Dambulla Cave Temple", zone:"CT", cat:"temple", lat:7.8567, lng:80.6492, fromHub:"30 min", visit:"1.5 h", fee:null, feeSource:"Temple ticket office (verify)", note:"UNESCO site. Shoulders and knees covered." },
+    { id:"polonnaruwa", name:"Polonnaruwa Ancient City", zone:"CT", cat:"heritage", lat:7.9403, lng:81.0188, fromHub:"1 h", visit:"4–5 h", fee:null, feeSource:"Central Cultural Fund", note:"UNESCO site. Best by bicycle or tuk-tuk inside the site." },
+    { id:"minneriya", name:"Minneriya National Park", zone:"CT", cat:"wildlife", lat:8.0367, lng:80.8250, fromHub:"45 min", visit:"Half day", fee:null, feeSource:"Department of Wildlife Conservation", note:"Jeep safari. Elephant numbers peak Jul–Sep." },
+    { id:"kaudulla", name:"Kaudulla National Park", zone:"CT", cat:"wildlife", lat:8.1500, lng:80.9000, fromHub:"1 h", visit:"Half day", fee:null, feeSource:"Department of Wildlife Conservation", note:"Drivers switch between Minneriya, Kaudulla and Hurulu depending on where herds are." },
+    { id:"ritigala", name:"Ritigala forest monastery", zone:"CT", cat:"heritage", lat:8.1146, lng:80.6528, fromHub:"1 h", visit:"2 h", fee:null, feeSource:"Central Cultural Fund (verify)" },
+    { id:"aukana", name:"Aukana Buddha statue", zone:"CT", cat:"heritage", lat:8.0118, lng:80.5125, fromHub:"1 h 15 min", visit:"1 h", fee:null, feeSource:"Verify on site" },
+    // Anuradhapura
+    { id:"anu-sacred", name:"Anuradhapura Sacred City", zone:"ANU", cat:"heritage", lat:8.3456, lng:80.3964, fromHub:"15 min", visit:"Full day", fee:null, feeSource:"Central Cultural Fund", note:"UNESCO site. Includes the great dagobas." },
+    { id:"bodhi", name:"Jaya Sri Maha Bodhi", zone:"ANU", cat:"temple", lat:8.3445, lng:80.3967, fromHub:"15 min", fee:null, feeSource:"Temple (verify)" },
+    { id:"mihintale", name:"Mihintale", zone:"ANU", cat:"temple", lat:8.3507, lng:80.5100, fromHub:"30 min", visit:"2 h", fee:null, feeSource:"Verify on site" },
+    { id:"wilpattu", name:"Wilpattu National Park", zone:"ANU", cat:"wildlife", lat:8.3700, lng:80.0200, fromHub:"1 h", visit:"Full day", fee:null, feeSource:"Department of Wildlife Conservation", note:"Leopards, sloth bears, far fewer jeeps than Yala." },
+    // Kandy
+    { id:"tooth", name:"Temple of the Sacred Tooth Relic", zone:"KAN", cat:"temple", lat:7.2936, lng:80.6413, fromHub:"In town", visit:"2 h", fee:null, feeSource:"Temple ticket office (verify)", note:"UNESCO (Sacred City of Kandy). Evening puja is the busiest time." },
+    { id:"kandy-lake", name:"Kandy Lake", zone:"KAN", cat:"city", lat:7.2925, lng:80.6420, fromHub:"In town", fee:null, feeSource:"Free" },
+    { id:"peradeniya", name:"Royal Botanic Gardens, Peradeniya", zone:"KAN", cat:"nature", lat:7.2687, lng:80.5966, fromHub:"20–30 min", visit:"2–3 h", fee:null, feeSource:"Department of National Botanic Gardens" },
+    { id:"udawatta", name:"Udawattakele forest reserve", zone:"KAN", cat:"nature", lat:7.2990, lng:80.6410, fromHub:"10 min", fee:null, feeSource:"Forest Department (verify)" },
+    { id:"bahirawa", name:"Bahirawakanda Buddha", zone:"KAN", cat:"scenic", lat:7.2950, lng:80.6290, fromHub:"10 min", fee:null, feeSource:"Verify on site" },
+    { id:"ambuluwawa", name:"Ambuluwawa Tower", zone:"KAN", cat:"scenic", lat:7.1625, lng:80.5444, fromHub:"1 h", visit:"2 h", fee:null, feeSource:"Verify on site" },
+    { id:"aluvihare", name:"Aluvihare Rock Temple", zone:"KAN", cat:"temple", lat:7.4980, lng:80.6190, fromHub:"45 min–1 h", fee:null, feeSource:"Verify on site", note:"Can be visited en route between Kandy and Dambulla." },
+    { id:"knuckles", name:"Knuckles Range", zone:"KAN", cat:"nature", lat:7.4500, lng:80.8000, fromHub:"1.5–2 h", visit:"Full day", fee:null, feeSource:"Forest Department (verify)", note:"Guided hiking only." },
+    { id:"pinnawala", name:"Pinnawala Elephant Orphanage", zone:"KAN", cat:"wildlife", lat:7.3006, lng:80.3867, fromHub:"1–1.5 h", fee:null, feeSource:"Department of National Zoological Gardens (verify)", note:"Animal-welfare concerns are widely reported; the Elephant Transit Home at Udawalawe is the usual alternative." },
+    // Nuwara Eliya
+    { id:"horton", name:"Horton Plains & World’s End", zone:"NUW", cat:"nature", lat:6.8020, lng:80.8040, fromHub:"1–1.5 h", visit:"Half day", fee:null, feeSource:"Department of Wildlife Conservation", note:"Start very early – mist usually closes the view by mid-morning." },
+    { id:"gregory", name:"Gregory Lake", zone:"NUW", cat:"city", lat:6.9580, lng:80.7780, fromHub:"5 min", fee:null, feeSource:"Verify on site" },
+    { id:"pedro", name:"Pedro Tea Estate", zone:"NUW", cat:"scenic", lat:6.9620, lng:80.7920, fromHub:"10 min", fee:null, feeSource:"Estate (verify)" },
+    { id:"hakgala", name:"Hakgala Botanical Garden", zone:"NUW", cat:"nature", lat:6.9230, lng:80.8210, fromHub:"20 min", fee:null, feeSource:"Department of National Botanic Gardens" },
+    { id:"nanuoya", name:"Nanu Oya station", zone:"NUW", cat:"transport", lat:6.9430, lng:80.7420, fromHub:"15–20 min", fee:null, feeSource:"Sri Lanka Railways" },
+    { id:"stclair", name:"St Clair’s & Devon Falls", zone:"NUW", cat:"scenic", lat:6.9370, lng:80.6630, fromHub:"45 min", fee:null, feeSource:"Free roadside viewpoints" },
+    // Adam's Peak
+    { id:"sripada", name:"Adam’s Peak (Sri Pada)", zone:"ADM", cat:"temple", lat:6.8096, lng:80.4994, fromHub:"Trailhead", visit:"6–8 h return", fee:null, feeSource:"No formal fee (verify)", note:"Night climb of ~5,000 steps for sunrise. In season Dec–May.", season:{jan:"g",feb:"g",mar:"g",maysep:"w"} },
+    { id:"kitulgala", name:"Kitulgala (rafting, rainforest)", zone:"ADM", cat:"nature", lat:6.9890, lng:80.4180, fromHub:"1.5 h", fee:null, feeSource:"Operators (verify)" },
+    // Ella
+    { id:"ninearches", name:"Nine Arches Bridge", zone:"ELL", cat:"scenic", lat:6.8768, lng:81.0607, fromHub:"30 min walk", fee:null, feeSource:"Free" },
+    { id:"littleadams", name:"Little Adam’s Peak", zone:"ELL", cat:"scenic", lat:6.8650, lng:81.0640, fromHub:"45 min walk", visit:"2 h", fee:null, feeSource:"Free" },
+    { id:"ellarock", name:"Ella Rock", zone:"ELL", cat:"nature", lat:6.8530, lng:81.0420, fromHub:"Trail from town", visit:"4–5 h", fee:null, feeSource:"Free" },
+    { id:"ravana", name:"Ravana Falls", zone:"ELL", cat:"scenic", lat:6.8400, lng:81.0540, fromHub:"15 min", fee:null, feeSource:"Free" },
+    { id:"lipton", name:"Lipton’s Seat & Dambatenne tea factory", zone:"ELL", cat:"scenic", lat:6.7838, lng:80.9578, fromHub:"1–1.5 h", visit:"Half day", fee:null, feeSource:"Verify on site", note:"Via Haputale; go early before cloud." },
+    { id:"diyaluma", name:"Diyaluma Falls", zone:"ELL", cat:"nature", lat:6.7300, lng:81.0300, fromHub:"1 h", fee:null, feeSource:"Verify on site" },
+    // Yala / Tissa
+    { id:"yala", name:"Yala National Park (Block 1)", zone:"TIS", cat:"wildlife", lat:6.2740, lng:81.4040, fromHub:"30–40 min", visit:"Half or full day", fee:null, feeSource:"Department of Wildlife Conservation", note:"Highest leopard density; busy with jeeps at peak times." },
+    { id:"bundala", name:"Bundala National Park", zone:"TIS", cat:"wildlife", lat:6.2000, lng:81.2500, fromHub:"30 min", fee:null, feeSource:"Department of Wildlife Conservation", note:"Wetland birds; migratory flamingos usually present in winter." },
+    { id:"kataragama", name:"Kataragama", zone:"TIS", cat:"temple", lat:6.4134, lng:81.3346, fromHub:"30 min", fee:null, feeSource:"Free (verify)", note:"Evening puja is the highlight." },
+    { id:"tissa-dagoba", name:"Tissamaharama Dagoba & lake", zone:"TIS", cat:"heritage", lat:6.2840, lng:81.2870, fromHub:"In town", fee:null, feeSource:"Free (verify)" },
+    { id:"sithulpawwa", name:"Sithulpawwa rock temple", zone:"TIS", cat:"temple", lat:6.3870, lng:81.4630, fromHub:"1 h", fee:null, feeSource:"Verify on site" },
+    // Udawalawe / Sinharaja
+    { id:"udawalawe", name:"Udawalawe National Park", zone:"SIN", cat:"wildlife", lat:6.4740, lng:80.8990, fromHub:"10 min", visit:"Half day", fee:null, feeSource:"Department of Wildlife Conservation", note:"Most reliable park for elephant sightings." },
+    { id:"eth", name:"Elephant Transit Home", zone:"SIN", cat:"wildlife", lat:6.4370, lng:80.8870, fromHub:"5 min", fee:null, feeSource:"Department of Wildlife Conservation", note:"Viewing at feeding times only." },
+    { id:"sinharaja", name:"Sinharaja Forest Reserve", zone:"SIN", cat:"nature", lat:6.4090, lng:80.4990, fromHub:"2 h", visit:"Full day", fee:null, feeSource:"Forest Department", note:"UNESCO rainforest. Better as its own overnight (Kudawa or Deniyaya side).", season:{jan:"g",feb:"g",mar:"g",maysep:"w"} },
+    // South coast
+    { id:"galle", name:"Galle Fort", zone:"STH", cat:"heritage", lat:6.0269, lng:80.2170, fromHub:"50 min", visit:"Half day", fee:null, feeSource:"Free to walk; museums priced separately", note:"UNESCO site. Ramparts best at sunset." },
+    { id:"unawatuna", name:"Unawatuna & Jungle Beach", zone:"STH", cat:"beach", lat:6.0103, lng:80.2489, fromHub:"40 min", fee:null, feeSource:"Free" },
+    { id:"peacepagoda", name:"Japanese Peace Pagoda", zone:"STH", cat:"temple", lat:6.0130, lng:80.2420, fromHub:"40 min", fee:null, feeSource:"Free" },
+    { id:"stilt", name:"Koggala stilt fishermen", zone:"STH", cat:"scenic", lat:5.9900, lng:80.3300, fromHub:"30 min", fee:null, feeSource:"Informal photo charge" },
+    { id:"mirissa", name:"Mirissa beach & Coconut Tree Hill", zone:"STH", cat:"beach", lat:5.9445, lng:80.4590, fromHub:"In town", fee:null, feeSource:"Free" },
+    { id:"whales", name:"Whale watching (Mirissa harbour)", zone:"STH", cat:"wildlife", lat:5.9470, lng:80.4540, fromHub:"5 min", visit:"4–5 h", fee:null, feeSource:"Licensed operators (verify)", note:"Blue whale season roughly Dec–Apr.", season:{jan:"g",feb:"g",mar:"g",maysep:"w"} },
+    { id:"weligama", name:"Weligama bay (beginner surf)", zone:"STH", cat:"beach", lat:5.9740, lng:80.4290, fromHub:"15 min", fee:null, feeSource:"Free" },
+    { id:"dondra", name:"Dondra Head lighthouse", zone:"STH", cat:"scenic", lat:5.9210, lng:80.5890, fromHub:"30 min", fee:null, feeSource:"Verify on site" },
+    { id:"hiriketiya", name:"Hiriketiya", zone:"STH", cat:"beach", lat:5.9620, lng:80.7080, fromHub:"45 min", fee:null, feeSource:"Free" },
+    { id:"tangalle", name:"Tangalle beaches", zone:"STH", cat:"beach", lat:6.0242, lng:80.7941, fromHub:"1 h", fee:null, feeSource:"Free" },
+    { id:"mulkirigala", name:"Mulkirigala rock temple", zone:"STH", cat:"temple", lat:6.1220, lng:80.7380, fromHub:"1 h 15 min", fee:null, feeSource:"Verify on site" },
+    { id:"rekawa", name:"Rekawa turtle watch", zone:"STH", cat:"wildlife", lat:6.0480, lng:80.8500, fromHub:"1 h 15 min", fee:null, feeSource:"Turtle Conservation Project (verify)", note:"Night-time nesting visits." },
+    // West coast
+    { id:"bentota", name:"Bentota beach & river", zone:"WST", cat:"beach", lat:6.4211, lng:79.9989, fromHub:"In town", fee:null, feeSource:"Free" },
+    { id:"lunuganga", name:"Lunuganga (Geoffrey Bawa’s estate)", zone:"WST", cat:"heritage", lat:6.4060, lng:80.0110, fromHub:"10 min", fee:null, feeSource:"Lunuganga Trust (verify)" },
+    { id:"brief", name:"Brief Garden", zone:"WST", cat:"nature", lat:6.4530, lng:80.0410, fromHub:"20 min", fee:null, feeSource:"Verify on site" },
+    { id:"kosgoda", name:"Kosgoda turtle hatchery", zone:"WST", cat:"wildlife", lat:6.3300, lng:80.0280, fromHub:"20 min", fee:null, feeSource:"Verify on site" },
+    { id:"madu", name:"Madu River boat trip", zone:"WST", cat:"nature", lat:6.2580, lng:80.0450, fromHub:"30 min", fee:null, feeSource:"Operators (verify)" },
+    { id:"hikkaduwa", name:"Hikkaduwa", zone:"WST", cat:"beach", lat:6.1395, lng:80.1063, fromHub:"1 h", fee:null, feeSource:"Free" },
+    // Kalpitiya
+    { id:"dolphins", name:"Kalpitiya dolphin watching", zone:"KAL", cat:"wildlife", lat:8.2400, lng:79.7400, fromHub:"15 min", fee:null, feeSource:"Operators (verify)", note:"Season roughly Nov–Apr." },
+    // Trincomalee / east
+    { id:"koneswaram", name:"Koneswaram Temple", zone:"TRI", cat:"temple", lat:8.5830, lng:81.2450, fromHub:"20 min", fee:null, feeSource:"Free (verify)" },
+    { id:"fortfred", name:"Fort Frederick", zone:"TRI", cat:"heritage", lat:8.5810, lng:81.2380, fromHub:"20 min", fee:null, feeSource:"Free (military site, verify access)" },
+    { id:"pigeon", name:"Pigeon Island National Park", zone:"TRI", cat:"nature", lat:8.7230, lng:81.1890, fromHub:"15 min + boat", fee:null, feeSource:"Department of Wildlife Conservation", note:"Snorkelling; best when sea is calm (Apr–Sep)." },
+    { id:"nilaveli", name:"Nilaveli beach", zone:"TRI", cat:"beach", lat:8.6900, lng:81.1960, fromHub:"In area", fee:null, feeSource:"Free" },
+    { id:"pasikudah", name:"Pasikudah bay", zone:"TRI", cat:"beach", lat:7.9280, lng:81.5610, fromHub:"2–2.5 h", fee:null, feeSource:"Free", note:"Better treated as its own base if included." },
+    // Arugam Bay
+    { id:"arugam", name:"Arugam Bay Main Point", zone:"ARU", cat:"beach", lat:6.8400, lng:81.8360, fromHub:"In town", fee:null, feeSource:"Free" },
+    { id:"kumana", name:"Kumana National Park", zone:"ARU", cat:"wildlife", lat:6.5200, lng:81.6800, fromHub:"1 h", fee:null, feeSource:"Department of Wildlife Conservation" },
+    { id:"lahugala", name:"Lahugala Kitulana National Park", zone:"ARU", cat:"wildlife", lat:6.8800, lng:81.7200, fromHub:"30 min", fee:null, feeSource:"Department of Wildlife Conservation" },
+    // Jaffna
+    { id:"nallur", name:"Nallur Kandaswamy Kovil", zone:"JAF", cat:"temple", lat:9.6747, lng:80.0294, fromHub:"10 min", fee:null, feeSource:"Free", note:"Men remove shirts to enter." },
+    { id:"jaffnafort", name:"Jaffna Fort", zone:"JAF", cat:"heritage", lat:9.6620, lng:80.0080, fromHub:"10 min", fee:null, feeSource:"Verify on site" },
+    { id:"jaffnalib", name:"Jaffna Public Library", zone:"JAF", cat:"heritage", lat:9.6608, lng:80.0130, fromHub:"10 min", fee:null, feeSource:"Free (verify)" },
+    { id:"nainativu", name:"Nainativu island temples", zone:"JAF", cat:"temple", lat:9.6120, lng:79.7740, fromHub:"1.5 h incl. ferry", fee:null, feeSource:"Ferry (verify)" },
+    { id:"delft", name:"Delft island", zone:"JAF", cat:"nature", lat:9.5150, lng:79.6900, fromHub:"2 h+ incl. ferry", fee:null, feeSource:"Ferry (verify)" },
+    { id:"pointpedro", name:"Point Pedro", zone:"JAF", cat:"scenic", lat:9.8167, lng:80.2333, fromHub:"1 h", fee:null, feeSource:"Free" }
+  ],
+
+  // Travel between bases. Applies in either direction. Times approximate.
+  legs: [
+    { a:"NEG", b:"CT",  options:[{mode:"Private car", time:"3.5–4 h"}], cost:null },
+    { a:"NEG", b:"COL", options:[{mode:"Private car", time:"45 min–1 h", note:"Airport expressway"}], cost:null },
+    { a:"NEG", b:"KAN", options:[{mode:"Private car", time:"3–3.5 h"}], cost:null },
+    { a:"COL", b:"CT",  options:[{mode:"Private car", time:"4–4.5 h"}], cost:null },
+    { a:"COL", b:"KAN", options:[{mode:"Train", time:"2.5–3 h", note:"Colombo Fort–Kandy; reserved classes"},{mode:"Private car", time:"3 h"}], cost:null },
+    { a:"CT",  b:"KAN", options:[{mode:"Private car", time:"2.5–3 h", note:"Stop at Dambulla / Aluvihare en route"}], cost:null },
+    { a:"CT",  b:"ANU", options:[{mode:"Private car", time:"1.5–2 h"}], cost:null },
+    { a:"CT",  b:"TRI", options:[{mode:"Private car", time:"2–2.5 h"}], cost:null },
+    { a:"ANU", b:"JAF", options:[{mode:"Train", time:"4–5 h", note:"Northern line"},{mode:"Private car", time:"4 h"}], cost:null },
+    { a:"ANU", b:"KAL", options:[{mode:"Private car", time:"2.5 h"}], cost:null },
+    { a:"JAF", b:"TRI", options:[{mode:"Private car", time:"4–4.5 h"}], cost:null },
+    { a:"KAN", b:"NUW", options:[{mode:"Train", time:"~4 h", note:"Kandy–Nanu Oya, the scenic hill-country line; book reserved seats"},{mode:"Private car", time:"2.5–3 h"}], cost:null },
+    { a:"KAN", b:"ADM", options:[{mode:"Private car", time:"2.5–3 h"}], cost:null },
+    { a:"ADM", b:"NUW", options:[{mode:"Train", time:"~1.5 h", note:"Hatton–Nanu Oya"},{mode:"Private car", time:"2 h"}], cost:null },
+    { a:"NUW", b:"ELL", options:[{mode:"Train", time:"3–3.5 h", note:"Nanu Oya–Ella, most scenic section"},{mode:"Private car", time:"2–2.5 h"}], cost:null },
+    { a:"KAN", b:"ELL", options:[{mode:"Train", time:"6.5–7 h", note:"Full scenic run in one go"},{mode:"Private car", time:"4.5–5 h"}], cost:null },
+    { a:"ELL", b:"TIS", options:[{mode:"Private car", time:"2–2.5 h"}], cost:null },
+    { a:"ELL", b:"SIN", options:[{mode:"Private car", time:"2 h"}], cost:null },
+    { a:"ELL", b:"ARU", options:[{mode:"Private car", time:"3 h"}], cost:null },
+    { a:"ARU", b:"TIS", options:[{mode:"Private car", time:"3–3.5 h"}], cost:null },
+    { a:"TIS", b:"SIN", options:[{mode:"Private car", time:"1–1.5 h"}], cost:null },
+    { a:"TIS", b:"STH", options:[{mode:"Private car", time:"2.5–3 h"}], cost:null },
+    { a:"SIN", b:"STH", options:[{mode:"Private car", time:"2–2.5 h"}], cost:null },
+    { a:"STH", b:"COL", options:[{mode:"Train", time:"3–3.5 h", note:"Coastal line from Weligama/Matara"},{mode:"Expressway coach", time:"2–2.5 h", note:"Air-conditioned Southern Expressway service"},{mode:"Private car", time:"2–2.5 h"}], cost:null },
+    { a:"STH", b:"NEG", options:[{mode:"Private car", time:"3–3.5 h", note:"Southern + Outer Circular + airport expressways"}], cost:null },
+    { a:"STH", b:"WST", options:[{mode:"Train", time:"1.5–2 h"},{mode:"Private car", time:"1.5 h"}], cost:null },
+    { a:"WST", b:"NEG", options:[{mode:"Private car", time:"1.5–2 h"}], cost:null },
+    { a:"WST", b:"COL", options:[{mode:"Train", time:"1.5–2 h", note:"Coastal line"},{mode:"Private car", time:"1–1.5 h"}], cost:null },
+    { a:"KAL", b:"NEG", options:[{mode:"Private car", time:"2.5–3 h"}], cost:null }
+  ]
+};
+
+/* ===== monsoon divide (approximate, follows the central highlands) ===== */
+const DIVIDE = [[8.55,79.40],[8.10,80.00],[7.60,80.50],[7.00,80.75],[6.70,80.85],[6.30,81.05],[5.80,81.20]];
+const SW_POLY = [...DIVIDE, [5.55,81.20],[5.55,79.30],[8.55,79.30]];
+const NE_POLY = [...DIVIDE, [5.55,81.20],[5.55,82.30],[10.15,82.30],[10.15,79.30],[8.55,79.30]];
+const MONTHS = { jan:"January", feb:"February", mar:"March", maysep:"May–Sep (comparison)" };
+const SEASON_TXT = {
+  jan:"January: the south-west half (Colombo, south coast, hills, Kandy) is in its main dry season. The north and east are at the tail of the NE monsoon and still wet.",
+  feb:"February: usually the driest month island-wide on the west and in the hills. The east coast is improving but sea conditions can remain rough.",
+  mar:"March: dry across most of the island, east coast now largely settled. Late-afternoon inter-monsoon storms start to appear towards the end of the month.",
+  maysep:"May–Sep: the SW monsoon reverses the picture – west, south and hills wet; east coast, Cultural Triangle and north dry."
+};
+const RATING = { g:"Good", m:"Mixed", w:"Wet" };
+const CATS = { heritage:"Heritage", temple:"Temples", nature:"Nature & hiking", wildlife:"Wildlife", beach:"Beaches", scenic:"Viewpoints", city:"Towns", transport:"Transport" };
+
+/* ===== state (saved in this browser) ===== */
+const KEY = "lk-trip-plan-v1";
+function defaults(){
+  return { order: TRIP.zones.map(z=>z.id),
+    included: Object.fromEntries(TRIP.zones.map(z=>[z.id, z.included])),
+    nights: Object.fromEntries(TRIP.zones.map(z=>[z.id, z.nights])),
+    month:"jan", overlay:true, route:true, showExcluded:true, open:{},
+    cats:Object.fromEntries(Object.keys(CATS).map(c=>[c,true])) };
+}
+let state = defaults();
+try { const s = JSON.parse(localStorage.getItem(KEY)||"null"); if (s) state = Object.assign(defaults(), s); } catch(e){}
+// keep order valid if zones are added/removed in the file
+state.order = state.order.filter(id=>TRIP.zones.some(z=>z.id===id));
+TRIP.zones.forEach(z=>{ if(!state.order.includes(z.id)) state.order.push(z.id); if(!(z.id in state.included)) state.included[z.id]=z.included; if(!(z.id in state.nights)) state.nights[z.id]=z.nights; });
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+const Z = Object.fromEntries(TRIP.zones.map(z=>[z.id,z]));
+const ratingOf = (s)=> (s.season || Z[s.zone].season)[state.month];
+const cssVar = (n)=> getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const ratingColor = (r)=> cssVar(r==="g"?"--good":r==="m"?"--mixed":"--wet");
+function findLeg(a,b){
+  const l = TRIP.legs.find(l=>(l.a===a&&l.b===b)||(l.a===b&&l.b===a));
+  return l || { options:[{mode:"Not yet planned", time:"–", note:"Add this pair to TRIP.legs"}], cost:null, missing:true };
+}
+const includedOrder = ()=> state.order.filter(id=>state.included[id]);
+
+/* ===== map ===== */
+const map = L.map("map",{zoomControl:true}).setView([7.75,80.75],8);
+// Basemaps. All keyless. If online tiles fail or show a warning, choose "Offline outline",
+// which is drawn from data embedded in this file and always works.
+// OpenStreetMap's own servers refuse pages opened from a local file; that option works once the file is hosted.
+const LKA_OUTLINE = {"type":"MultiPolygon","coordinates":[[[[81.876,7.0919],[81.8784,7.0761],[81.8887,7.0408],[81.8903,7.0199],[81.8846,6.9802],[81.8386,6.8214],[81.8359,6.8051],[81.835,6.7834],[81.8316,6.7654],[81.8171,6.7375],[81.814,6.725],[81.8083,6.708],[81.7889,6.6778],[81.7798,6.6636],[81.7866,6.6393],[81.7756,6.6104],[81.6815,6.4621],[81.6501,6.4309],[81.5921,6.3899],[81.5731,6.3842],[81.5477,6.3707],[81.3621,6.2254],[81.325,6.2054],[81.2044,6.1627],[81.2044,6.1627],[81.2027,6.1772],[81.2026,6.178],[81.1955,6.1837],[81.1953,6.1836],[81.1937,6.1832],[81.1877,6.1816],[81.1838,6.1736],[81.1819,6.1567],[81.1764,6.1504],[81.1677,6.148],[81.156,6.1429],[81.1343,6.1298],[81.1126,6.1203],[81.0085,6.098],[80.958,6.0808],[80.9027,6.0708],[80.8775,6.0611],[80.8623,6.0399],[80.8352,6.0452],[80.8185,6.0388],[80.8091,6.0351],[80.7706,6.0067],[80.7321,5.9784],[80.7144,5.9579],[80.6734,5.9603],[80.6733,5.9604],[80.6563,5.9579],[80.6429,5.9529],[80.6292,5.9451],[80.6048,5.9269],[80.5978,5.9253],[80.5908,5.9237],[80.5742,5.9301],[80.5567,5.9392],[80.5466,5.9422],[80.5396,5.9443],[80.4817,5.9374],[80.4652,5.9407],[80.4568,5.9489],[80.4514,5.9598],[80.4472,5.9661],[80.444,5.9709],[80.4271,5.9611],[80.412,5.9599],[80.385,5.9638],[80.3786,5.9647],[80.3738,5.9669],[80.3705,5.9716],[80.3662,5.9763],[80.3584,5.9784],[80.3538,5.9768],[80.3501,5.9735],[80.3462,5.9708],[80.341,5.9709],[80.3392,5.9724],[80.3376,5.9738],[80.3312,5.9828],[80.3281,5.9847],[80.3273,5.9852],[80.3273,5.9853],[80.3202,5.9877],[80.2775,6.003],[80.26,6.0066],[80.2476,6.0092],[80.2258,6.0266],[80.221,6.0289],[80.2114,6.0336],[80.2112,6.0336],[80.2039,6.0262],[80.1852,6.0412],[80.1038,6.1271],[80.0971,6.1324],[80.097,6.1324],[80.0963,6.1333],[80.094,6.1361],[80.0928,6.1402],[80.0931,6.1487],[80.0906,6.1531],[80.0872,6.1576],[80.0781,6.1693],[80.032,6.2663],[80.03,6.2756],[80.03,6.2757],[80.0303,6.284],[80.0305,6.2923],[80.0305,6.2924],[80.0288,6.2974],[80.0205,6.3146],[80.0121,6.3613],[79.9937,6.3941],[79.9821,6.441],[79.9779,6.4582],[79.9758,6.4599],[79.9714,6.4625],[79.967,6.4664],[79.9642,6.4719],[79.9653,6.4777],[79.9702,6.4792],[79.9754,6.4786],[79.9754,6.4786],[79.9779,6.4787],[79.9702,6.5312],[79.9696,6.5353],[79.9487,6.5886],[79.863,6.8072],[79.8495,6.8827],[79.8482,6.8902],[79.8482,6.9621],[79.8493,6.965],[79.8592,6.9887],[79.8618,7.0001],[79.8616,7.0117],[79.8616,7.0119],[79.8137,7.1807],[79.8203,7.2055],[79.82,7.1903],[79.8237,7.1806],[79.8291,7.1732],[79.8338,7.1645],[79.8434,7.131],[79.8482,7.123],[79.8543,7.123],[79.8558,7.1325],[79.8587,7.1365],[79.8612,7.1372],[79.8613,7.1372],[79.8618,7.1366],[79.8616,7.1672],[79.8616,7.1674],[79.8594,7.1808],[79.8543,7.1918],[79.8496,7.1951],[79.8364,7.1979],[79.8306,7.2018],[79.8299,7.2032],[79.8263,7.2104],[79.828,7.2183],[79.8318,7.2257],[79.8338,7.2328],[79.7847,7.5898],[79.7786,7.6027],[79.7827,7.6071],[79.7858,7.6076],[79.793,7.6027],[79.7946,7.62],[79.7996,7.6401],[79.8008,7.6497],[79.802,7.6593],[79.7964,7.6744],[79.7888,7.6882],[79.7874,7.6973],[79.7859,7.7065],[79.786,7.7434],[79.763,7.8555],[79.7603,7.8684],[79.7484,7.893],[79.7383,7.9447],[79.7219,7.9855],[79.6968,8.0983],[79.6968,8.1303],[79.7009,8.1285],[79.7011,8.1282],[79.7014,8.1279],[79.7014,8.1269],[79.7036,8.1235],[79.7072,8.1421],[79.7019,8.2012],[79.6968,8.2191],[79.7132,8.2298],[79.7288,8.2497],[79.74,8.2724],[79.7445,8.2914],[79.749,8.3039],[79.7786,8.35],[79.7782,8.3493],[79.7634,8.3144],[79.7445,8.2812],[79.7486,8.2731],[79.7497,8.2711],[79.7571,8.2637],[79.7668,8.2599],[79.7786,8.26],[79.7689,8.2328],[79.7588,8.2129],[79.7544,8.2094],[79.7498,8.2089],[79.7461,8.2061],[79.7445,8.1955],[79.7454,8.1719],[79.7445,8.1645],[79.7275,8.1109],[79.7282,8.101],[79.7295,8.0811],[79.747,8.0605],[79.752,8.0546],[79.7319,8.0131],[79.7638,7.9901],[79.8102,7.9865],[79.8338,8.0031],[79.8294,8.0209],[79.8218,8.0349],[79.8189,8.0402],[79.8153,8.0446],[79.8064,8.0556],[79.7964,8.062],[79.7935,8.0728],[79.8272,8.1365],[79.8259,8.1481],[79.8215,8.1566],[79.8166,8.1638],[79.8135,8.1713],[79.8127,8.1833],[79.8138,8.2041],[79.8135,8.2126],[79.8135,8.2129],[79.8129,8.2145],[79.8102,8.2216],[79.8086,8.2231],[79.8067,8.2249],[79.8047,8.229],[79.8067,8.2402],[79.8114,8.2497],[79.8245,8.2667],[79.8272,8.2777],[79.8293,8.2987],[79.8386,8.3405],[79.8482,8.4382],[79.8543,8.4493],[79.8608,8.4548],[79.8659,8.4614],[79.868,8.476],[79.868,8.5176],[79.8738,8.5381],[79.8874,8.5512],[79.9035,8.5621],[79.9165,8.576],[79.9181,8.5809],[79.9281,8.6115],[79.9295,8.6128],[79.9302,8.6135],[79.9324,8.6225],[79.9417,8.6425],[79.9505,8.7398],[79.9264,8.8019],[79.9284,8.8127],[79.9302,8.8835],[79.9302,8.8845],[79.9277,8.9081],[79.9248,8.9197],[79.9196,8.9285],[79.9155,8.9385],[79.9248,8.9435],[79.9382,8.946],[79.9471,8.9487],[80.0051,9.0006],[80.0354,9.0153],[80.048,9.0263],[80.0547,9.0506],[80.0667,9.0756],[80.0735,9.1104],[80.1056,9.1929],[80.1068,9.1974],[80.1098,9.2095],[80.116,9.2338],[80.116,9.2919],[80.1182,9.3004],[80.1162,9.3062],[80.1045,9.3084],[80.0769,9.3227],[80.0662,9.3326],[80.0594,9.3514],[80.0583,9.3548],[80.0535,9.3782],[80.053,9.3915],[80.065,9.404],[80.0871,9.415],[80.1117,9.4228],[80.1318,9.4257],[80.1409,9.4303],[80.1629,9.4592],[80.1654,9.4611],[80.1692,9.464],[80.1765,9.4683],[80.1856,9.4717],[80.197,9.4735],[80.1875,9.4909],[80.1818,9.4985],[80.176,9.5062],[80.1613,9.5206],[80.1419,9.535],[80.0679,9.578],[80.053,9.5964],[80.0852,9.5954],[80.1157,9.5832],[80.176,9.5486],[80.2334,9.5342],[80.2485,9.5246],[80.2722,9.5041],[80.2781,9.4933],[80.2659,9.4871],[80.2686,9.4803],[80.2721,9.4735],[80.2659,9.4667],[80.266,9.4667],[80.2869,9.4527],[80.3363,9.4647],[80.4266,9.5002],[80.4509,9.4979],[80.5042,9.4833],[80.5671,9.4552],[80.6146,9.4462],[80.6148,9.4462],[80.5467,9.4924],[80.5233,9.5032],[80.5025,9.5076],[80.4994,9.5091],[80.4963,9.5105],[80.4783,9.5241],[80.4714,9.5281],[80.4646,9.5291],[80.4564,9.5287],[80.444,9.5281],[80.4362,9.5251],[80.4351,9.5234],[80.4329,9.5198],[80.429,9.5178],[80.4157,9.5275],[80.4104,9.5284],[80.3779,9.5275],[80.3687,9.5302],[80.2975,9.5913],[80.267,9.6108],[80.2669,9.6108],[80.256,9.6156],[80.2046,9.6379],[80.186,9.6485],[80.1736,9.6487],[80.176,9.6243],[80.1829,9.6172],[80.1936,9.6091],[80.2,9.5992],[80.1936,9.5864],[80.186,9.5841],[80.1787,9.588],[80.172,9.5936],[80.1528,9.6035],[80.1155,9.6357],[80.094,9.6448],[80.0941,9.6448],[80.105,9.6329],[80.1247,9.616],[80.1356,9.6038],[80.1113,9.6085],[80.0874,9.6184],[80.0393,9.6448],[80.001,9.6747],[79.9782,9.6827],[79.9759,9.6841],[79.9673,9.6896],[79.9592,9.6928],[79.958,9.6857],[79.947,9.6932],[79.9429,9.7028],[79.9409,9.7143],[79.937,9.7274],[79.9304,9.7385],[79.9265,9.7435],[79.9163,9.7568],[79.9097,9.7683],[79.9313,9.779],[79.9707,9.8151],[79.9885,9.8229],[79.9885,9.8229],[80.0667,9.8161],[80.1074,9.8206],[80.1223,9.8189],[80.1282,9.8056],[80.1272,9.7846],[80.1301,9.7773],[80.1387,9.7746],[80.147,9.7734],[80.1709,9.7673],[80.176,9.7646],[80.1804,9.7558],[80.1912,9.7562],[80.1996,9.7587],[80.2029,9.7597],[80.2078,9.7604],[80.2112,9.7609],[80.2113,9.7608],[80.219,9.7564],[80.2223,9.7545],[80.2503,9.7243],[80.3386,9.6292],[80.3696,9.6098],[80.4417,9.5769],[80.444,9.5759],[80.444,9.5833],[80.4077,9.6015],[80.3198,9.6728],[80.2478,9.7551],[80.2112,9.7745],[80.1538,9.788],[80.1387,9.7987],[80.1367,9.8139],[80.1577,9.8229],[80.1646,9.8241],[80.1854,9.8275],[80.2268,9.8296],[80.2468,9.8259],[80.2606,9.8162],[80.2698,9.7835],[80.279,9.7698],[80.4099,9.6175],[80.4292,9.6035],[80.4683,9.5814],[80.7444,9.3597],[80.7455,9.3579],[80.7525,9.3463],[80.7637,9.3324],[80.7852,9.3124],[80.7988,9.2949],[80.7867,9.2886],[80.7866,9.2885],[80.7798,9.2916],[80.779,9.2919],[80.7788,9.292],[80.7683,9.3054],[80.7625,9.3083],[80.7625,9.3084],[80.7444,9.3113],[80.7365,9.309],[80.7404,9.301],[80.7417,9.2985],[80.7936,9.2506],[80.8139,9.2395],[80.814,9.2395],[80.8059,9.2519],[80.801,9.2633],[80.8036,9.2716],[80.8174,9.2748],[80.8239,9.2705],[80.8345,9.2395],[80.8442,9.2204],[80.8822,9.1452],[80.8745,9.148],[80.8534,9.1557],[80.8401,9.156],[80.8345,9.1418],[80.8423,9.1381],[80.8586,9.1355],[80.8731,9.1265],[80.8732,9.1252],[80.8753,9.1036],[80.8755,9.1036],[80.8822,9.1036],[80.8855,9.1093],[80.8885,9.1118],[80.8919,9.1134],[80.8965,9.1166],[80.8965,9.1165],[80.9016,9.0967],[80.9022,9.0942],[80.9164,9.0622],[80.9353,9.0334],[80.9546,9.021],[80.9561,9.0198],[80.9583,9.0179],[80.9583,9.0109],[80.9536,9.0039],[80.9443,9.0006],[80.9417,9.0035],[80.9307,9.021],[80.9187,9.0272],[80.8913,9.0342],[80.8753,9.0415],[80.8827,9.0314],[80.8867,9.0258],[80.9229,8.9923],[80.9232,8.9732],[80.9351,8.9649],[80.935,8.9648],[80.9243,8.955],[80.9149,8.9439],[80.915,8.9439],[80.9307,8.9316],[80.9476,8.9329],[80.9614,8.9457],[80.9717,8.9636],[80.9784,8.98],[80.9785,8.98],[81.0147,8.9367],[81.0467,8.8821],[81.0598,8.8686],[81.0781,8.8633],[81.0928,8.8516],[81.1143,8.8],[81.1197,8.7943],[81.1255,8.7883],[81.1256,8.7882],[81.1502,8.7772],[81.1624,8.7512],[81.1765,8.6989],[81.179,8.7085],[81.1823,8.7122],[81.1878,8.711],[81.1878,8.711],[81.1975,8.7057],[81.1946,8.6961],[81.2224,8.666],[81.2317,8.6511],[81.2316,8.633],[81.2243,8.6258],[81.2139,8.621],[81.2044,8.6101],[81.2045,8.6102],[81.2118,8.612],[81.2192,8.6139],[81.2211,8.6149],[81.2249,8.6169],[81.2249,8.6168],[81.2466,8.5701],[81.2498,8.5458],[81.2249,8.5418],[81.2249,8.5418],[81.23,8.5579],[81.2233,8.5709],[81.2122,8.5727],[81.2044,8.5555],[81.207,8.5421],[81.2141,8.5327],[81.218,8.5225],[81.2106,8.5071],[81.2048,8.5115],[81.1939,8.52],[81.1765,8.5306],[81.159,8.5346],[81.1423,8.5276],[81.1294,8.5103],[81.134,8.5013],[81.1494,8.5036],[81.1703,8.5207],[81.1846,8.5056],[81.1975,8.4875],[81.2131,8.4724],[81.2351,8.4661],[81.2811,8.467],[81.2966,8.4768],[81.2864,8.5002],[81.3127,8.5122],[81.3231,8.5153],[81.3342,8.5146],[81.3342,8.5145],[81.3464,8.5076],[81.3574,8.4958],[81.3657,8.4822],[81.3728,8.4421],[81.3884,8.3906],[81.3889,8.3772],[81.3894,8.3637],[81.3767,8.3725],[81.3635,8.3991],[81.3518,8.4047],[81.3514,8.3974],[81.3562,8.365],[81.3566,8.3625],[81.3621,8.35],[81.3687,8.3469],[81.3748,8.3441],[81.375,8.3441],[81.3885,8.3441],[81.3993,8.3393],[81.4056,8.301],[81.4133,8.2745],[81.4146,8.2701],[81.4167,8.2539],[81.4167,8.2538],[81.4198,8.2434],[81.4406,8.1735],[81.4485,8.128],[81.4303,8.1031],[81.4303,8.103],[81.4203,8.1442],[81.4188,8.1501],[81.4036,8.1918],[81.3963,8.1918],[81.395,8.1601],[81.3963,8.1501],[81.3955,8.1505],[81.3948,8.1476],[81.3948,8.1475],[81.3948,8.1426],[81.3963,8.1365],[81.3996,8.1326],[81.4081,8.1301],[81.4081,8.13],[81.4098,8.1269],[81.418,8.1059],[81.4356,8.0932],[81.4356,8.0932],[81.4524,8.0945],[81.4583,8.116],[81.4644,8.116],[81.4707,8.1046],[81.4724,8.1015],[81.4806,8.0654],[81.489,8.0515],[81.5002,8.0394],[81.5073,8.0276],[81.5197,7.9993],[81.5246,8.0042],[81.531,8.009],[81.5339,8.0136],[81.5383,8.0043],[81.5339,7.9993],[81.5361,7.9958],[81.5381,7.9934],[81.5384,7.9928],[81.5396,7.9908],[81.5402,7.9863],[81.5403,7.9864],[81.5453,7.9905],[81.5555,7.9953],[81.5607,7.9993],[81.5607,7.9993],[81.5631,7.9936],[81.5659,7.9868],[81.5638,7.9787],[81.5603,7.9706],[81.5605,7.9644],[81.5607,7.9584],[81.5677,7.945],[81.5801,7.9356],[81.5881,7.9294],[81.5955,7.9174],[81.5908,7.9171],[81.5885,7.9156],[81.5855,7.9135],[81.5836,7.9123],[81.5817,7.9112],[81.5788,7.9003],[81.5759,7.8894],[81.5876,7.8553],[81.5939,7.848],[81.6082,7.8317],[81.6084,7.8317],[81.6296,7.8355],[81.6364,7.8355],[81.6433,7.8146],[81.6512,7.8017],[81.6537,7.7978],[81.6968,7.753],[81.7107,7.7311],[81.7131,7.7118],[81.691,7.7052],[81.6909,7.7051],[81.6807,7.7121],[81.6561,7.7431],[81.6432,7.7541],[81.6266,7.7602],[81.6265,7.7602],[81.6248,7.76],[81.613,7.759],[81.6025,7.7484],[81.5955,7.7263],[81.6074,7.7209],[81.619,7.7192],[81.6289,7.7229],[81.6364,7.7331],[81.6482,7.7287],[81.659,7.7233],[81.6628,7.7189],[81.6653,7.7159],[81.6637,7.7051],[81.677,7.6928],[81.6903,7.6805],[81.7007,7.6686],[81.7116,7.6505],[81.7115,7.6505],[81.7064,7.6446],[81.7051,7.6389],[81.7068,7.632],[81.7116,7.6225],[81.7178,7.6301],[81.714,7.6437],[81.714,7.6437],[81.7258,7.6396],[81.749,7.6225],[81.7546,7.6146],[81.773,7.568],[81.7718,7.566],[81.7661,7.5407],[81.7669,7.5379],[81.7671,7.5375],[81.7718,7.5278],[81.773,7.5239],[81.7691,7.517],[81.7619,7.5115],[81.7576,7.5054],[81.7627,7.4966],[81.7676,7.4902],[81.7693,7.4852],[81.7695,7.4845],[81.7725,7.4788],[81.7798,7.4724],[81.7691,7.4646],[81.77,7.4608],[81.771,7.457],[81.7791,7.4553],[81.7871,7.4656],[81.7933,7.4656],[81.7934,7.4655],[81.801,7.4252],[81.8008,7.4103],[81.801,7.4103],[81.8078,7.4103],[81.8078,7.4107],[81.8086,7.4247],[81.811,7.4385],[81.8153,7.4503],[81.8215,7.4587],[81.8215,7.4655],[81.8209,7.4671],[81.8187,7.4734],[81.8205,7.4765],[81.826,7.4742],[81.835,7.4656],[81.8381,7.4577],[81.8403,7.4365],[81.8557,7.4122],[81.8807,7.3271],[81.876,7.0919]]],[[[81.7388,7.6605],[81.7371,7.671],[81.7332,7.6791],[81.7284,7.6891],[81.7251,7.6989],[81.7256,7.7093],[81.7287,7.7185],[81.73,7.7282],[81.7251,7.7398],[81.7251,7.7399],[81.738,7.7275],[81.7503,7.6986],[81.7593,7.6853],[81.7615,7.6795],[81.7708,7.6547],[81.7951,7.6163],[81.8063,7.5986],[81.8233,7.5114],[81.8233,7.5113],[81.8226,7.4914],[81.8078,7.4792],[81.7937,7.4902],[81.7894,7.4947],[81.7874,7.4968],[81.7867,7.5018],[81.786,7.5067],[81.7861,7.5088],[81.7903,7.5717],[81.7874,7.5935],[81.7764,7.6027],[81.7722,7.6116],[81.7388,7.6605]]],[[[79.7141,9.0756],[79.703,9.08],[79.698,9.0896],[79.7012,9.0992],[79.7141,9.1036],[79.7588,9.1036],[79.7786,9.0985],[79.799,9.0933],[79.8416,9.0772],[79.8823,9.0538],[79.9165,9.021],[79.9164,9.021],[79.9001,9.0244],[79.8713,9.0386],[79.8543,9.0415],[79.8803,9.0122],[79.9007,8.9891],[79.9097,8.9732],[79.8858,8.9762],[79.8701,8.9882],[79.8594,9.0012],[79.8513,9.0074],[79.841,9.0126],[79.7998,9.049],[79.7794,9.058],[79.759,9.067],[79.744,9.0711],[79.736,9.0732],[79.7141,9.0756]]],[[[79.7308,9.5002],[79.7228,9.4926],[79.7147,9.4851],[79.6895,9.4836],[79.666,9.4913],[79.6558,9.5039],[79.6558,9.5449],[79.6587,9.5554],[79.6653,9.554],[79.6721,9.5456],[79.6763,9.535],[79.6935,9.5296],[79.7141,9.5281],[79.7192,9.5244],[79.7308,9.5002]]],[[[79.8958,9.6175],[79.8804,9.6286],[79.8649,9.6515],[79.8407,9.6994],[79.8517,9.7165],[79.8543,9.7385],[79.8605,9.7563],[79.8823,9.7609],[79.8939,9.7574],[79.8941,9.7574],[79.895,9.749],[79.8911,9.7372],[79.8884,9.7236],[79.8888,9.7099],[79.8903,9.699],[79.8904,9.6983],[79.8913,9.6961],[79.8947,9.6882],[79.8993,9.683],[79.9028,9.6789],[79.9071,9.6779],[79.9264,9.6789],[79.9297,9.676],[79.9312,9.661],[79.9336,9.6547],[79.945,9.6476],[79.9605,9.6411],[79.9734,9.6338],[79.9745,9.6315],[79.9779,9.6243],[79.971,9.6173],[79.9578,9.6172],[79.9436,9.6215],[79.9336,9.6278],[79.9265,9.6295],[79.9085,9.619],[79.8959,9.6175],[79.8958,9.6175]]]]};
+map.createPane("outline"); map.getPane("outline").style.zIndex = 250;
+const outlineLayer = L.geoJSON(LKA_OUTLINE,{pane:"outline",interactive:false,style:()=>({color:"#7A8C80",weight:1,fillColor:"#E4E9E3",fillOpacity:1})});
+const base = {
+  "Street map (CARTO)": L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",attribution:"&copy; OpenStreetMap contributors &copy; CARTO"}),
+  "Light (CARTO)": L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd",attribution:"&copy; OpenStreetMap contributors &copy; CARTO"}),
+  "Terrain (OpenTopoMap)": L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxZoom:17,attribution:"&copy; OpenStreetMap contributors, SRTM | &copy; OpenTopoMap (CC-BY-SA)"}),
+  "OpenStreetMap (hosted file only)": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"}),
+  "Offline outline": outlineLayer
+};
+const BASE_KEY = "lk-trip-basemap";
+let baseName = "Street map (CARTO)";
+try { const b = localStorage.getItem(BASE_KEY); if (b && base[b]) baseName = b; } catch(e){}
+function setMapBg(name){ document.getElementById("map").style.background = name==="Offline outline" ? "#CFE0EA" : ""; }
+base[baseName].addTo(map); setMapBg(baseName);
+map.on("baselayerchange",e=>{ baseName=e.name; setMapBg(e.name); try{ localStorage.setItem(BASE_KEY,e.name); }catch(err){} });
+// automatic fallback if a tile provider fails to load
+Object.entries(base).forEach(([name,layer])=>{
+  if(!layer.on || name==="Offline outline") return;
+  let errs=0;
+  layer.on("tileerror",()=>{ if(++errs===6 && map.hasLayer(layer)){ map.removeLayer(layer); outlineLayer.addTo(map); baseName="Offline outline"; setMapBg(baseName);
+    L.popup().setLatLng(map.getCenter()).setContent(`${name} could not load, so the map has switched to the offline outline. Try another option in the layer menu (top right).`).openOn(map); }});
+  layer.on("tileload",()=>{ errs=0; });
+});
+L.control.layers(base,null,{position:"topright"}).addTo(map);
+L.control.scale({imperial:false}).addTo(map);
+
+const overlayLayer = L.layerGroup().addTo(map);
+const routeLayer = L.layerGroup().addTo(map);
+const sightLayer = L.layerGroup().addTo(map);
+const hubLayer = L.layerGroup().addTo(map);
+const sightMarkers = {};
+
+function drawOverlay(){
+  overlayLayer.clearLayers();
+  if(!state.overlay) return;
+  const m = state.month, summer = m==="maysep";
+  const neOp = {jan:.30,feb:.18,mar:.08,maysep:0}[m];
+  const swOp = summer ? .30 : 0;
+  const wet = cssVar("--wet"), dry = cssVar("--dry");
+  L.polygon(SW_POLY,{stroke:false,fillColor: summer?wet:dry, fillOpacity: summer?swOp:.08, interactive:false}).addTo(overlayLayer);
+  L.polygon(NE_POLY,{stroke:false,fillColor: summer?dry:wet, fillOpacity: summer?.08:neOp, interactive:false}).addTo(overlayLayer);
+  L.polyline(DIVIDE,{color:wet,weight:2,dashArray:"6 6",opacity:.9})
+    .bindTooltip("Approximate monsoon divide (central highlands)",{sticky:true}).addTo(overlayLayer);
+  L.marker([6.55,79.75],{icon:L.divIcon({className:"mlabel",html:"SW monsoon side<br>wet May–Sep",iconSize:[130,30]}),interactive:false}).addTo(overlayLayer);
+  L.marker([8.95,81.15],{icon:L.divIcon({className:"mlabel",html:"NE monsoon side<br>wet Nov–Jan",iconSize:[130,30]}),interactive:false}).addTo(overlayLayer);
+}
+
+function feeText(s){
+  if(!s.fee) return `<span class="pp-muted">Entry: to verify (source: ${s.feeSource||"tbc"})</span>`;
+  const f=s.fee; const parts=[];
+  if(f.gbp!=null) parts.push("£"+f.gbp); if(f.usd!=null) parts.push("US$"+f.usd); if(f.lkr!=null) parts.push("LKR "+f.lkr);
+  return `Entry: ${parts.join(" / ")} per adult${f.url?` (<a href="${f.url}" target="_blank" rel="noopener">${f.source||"source"}</a>`:` (${f.source||""}`}${f.checked?", checked "+f.checked:""})`;
+}
+function sightPopup(s){
+  const z=Z[s.zone], r=ratingOf(s);
+  return `<h3>${s.name}</h3>
+  <p class="pp-muted">${CATS[s.cat]} in ${z.name}${state.included[z.id]?"":" (base not in plan)"}</p>
+  <p>From base: <b>${s.fromHub||"–"}</b>${s.visit?` &nbsp; Allow: <b>${s.visit}</b>`:""}</p>
+  <p>${MONTHS[state.month]}: <span class="pill ${r}">${RATING[r]}</span></p>
+  ${s.note?`<p>${s.note}</p>`:""}
+  <p>${feeText(s)}</p>`;
+}
+function drawSights(){
+  sightLayer.clearLayers();
+  TRIP.sights.forEach(s=>{
+    const inc = state.included[s.zone];
+    if(!inc && !state.showExcluded) return;
+    if(!state.cats[s.cat]) return;
+    const r = ratingOf(s);
+    const mk = L.circleMarker([s.lat,s.lng],{radius:s.cat==="transport"?5:7,color:ratingColor(r),weight:3,
+      fillColor:Z[s.zone].color,fillOpacity:inc?.95:.35,opacity:inc?1:.45})
+      .bindPopup(()=>sightPopup(s),{maxWidth:300}).bindTooltip(s.name,{direction:"top",offset:[0,-6]});
+    mk.addTo(sightLayer); sightMarkers[s.id]=mk;
+  });
+}
+function drawHubs(){
+  hubLayer.clearLayers(); routeLayer.clearLayers();
+  const seq = includedOrder();
+  TRIP.zones.forEach(z=>{
+    const i = seq.indexOf(z.id), on = i>-1;
+    const html = `<div class="hubicon ${on?"":"off"}" style="background:${z.color};width:${on?28:20}px;height:${on?28:20}px">${on?i+1:""}</div>`;
+    L.marker([z.lat,z.lng],{icon:L.divIcon({className:"",html,iconSize:on?[28,28]:[20,20],iconAnchor:on?[14,14]:[10,10]}),zIndexOffset:on?1000:500})
+      .bindTooltip(`${on?(i+1)+". ":""}${z.name}${on?` – ${state.nights[z.id]} night${state.nights[z.id]===1?"":"s"}`:" (not in plan)"}`,{direction:"right",offset:[14,0]})
+      .on("click",()=>openZone(z.id,true)).addTo(hubLayer);
+  });
+  if(!state.route || !seq.length) return;
+  const pts = [[TRIP.airport.lat,TRIP.airport.lng], ...seq.map(id=>[Z[id].lat,Z[id].lng]), [TRIP.airport.lat,TRIP.airport.lng]];
+  L.polyline(pts,{color:cssVar("--tea"),weight:3,opacity:.75,dashArray:"2 8",lineCap:"round"}).addTo(routeLayer);
+  L.marker([TRIP.airport.lat,TRIP.airport.lng],{icon:L.divIcon({className:"",html:`<div class="hubicon" style="background:#16231C;width:24px;height:24px">✈</div>`,iconSize:[24,24],iconAnchor:[12,12]})})
+    .bindTooltip(TRIP.airport.name,{direction:"right",offset:[12,0]}).addTo(routeLayer);
+}
+
+/* ===== side panel ===== */
+const $ = (s)=>document.querySelector(s);
+function renderTotals(){
+  const seq = includedOrder();
+  const n = seq.reduce((t,id)=>t+state.nights[id],0);
+  const box = $("#totNights"); box.querySelector("b").textContent = n;
+  box.className = "tot " + (n>=TRIP.target.min && n<=TRIP.target.max ? "ok" : "warn");
+  box.querySelector("span").textContent = `nights (target ${TRIP.target.min}–${TRIP.target.max})`;
+  $("#totZones").textContent = seq.length;
+  // verified costs only
+  let gbp=0, pending=0;
+  TRIP.sights.filter(s=>state.included[s.zone]).forEach(s=>{ if(s.fee&&s.fee.gbp!=null) gbp+=s.fee.gbp*2; else if(s.fee===null) pending++; });
+  $("#totCost").textContent = gbp ? "£"+gbp.toLocaleString("en-GB") : "–";
+  $("#totCostLbl").textContent = `verified, ${pending} items to price`;
+}
+function renderSeason(){
+  document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.month===state.month));
+  $("#seasonNote").textContent = SEASON_TXT[state.month];
+}
+function renderLayerChecks(){
+  const items = [["overlay","Monsoon overlay"],["route","Route line"],["showExcluded","Sights in other bases"]]
+    .map(([k,l])=>`<label><input type="checkbox" data-k="${k}" ${state[k]?"checked":""}>${l}</label>`)
+    .concat(Object.entries(CATS).map(([c,l])=>`<label><input type="checkbox" data-cat="${c}" ${state.cats[c]?"checked":""}>${l}</label>`));
+  $("#layerChecks").innerHTML = items.join("");
+}
+function legHtml(a,b,label){
+  const l = findLeg(a==="AIR"?"NEG":a, b==="AIR"?"NEG":b);
+  const opts = l.options.map(o=>`<b>${o.mode}</b> ${o.time}${o.note?` – ${o.note}`:""}`).join("<br>");
+  return `<div class="leg" style="border-left-color:${l.missing?cssVar("--mixed"):cssVar("--line")}"><div>${label}</div>${opts}<div class="pp-muted">${l.cost?"Cost: "+l.cost:"Cost: to verify"}</div></div>`;
+}
+function renderZones(){
+  const seq = includedOrder();
+  $("#zoneList").innerHTML = state.order.map(id=>{
+    const z=Z[id], on=state.included[id], i=seq.indexOf(id), r=z.season[state.month];
+    const sights = TRIP.sights.filter(s=>s.zone===id);
+    const rows = sights.map(s=>`<tr><td><button data-sight="${s.id}">${s.name}</button></td><td>${s.fromHub||""}</td><td><span class="pill ${ratingOf(s)}" title="${MONTHS[state.month]}">${RATING[ratingOf(s)]}</span></td></tr>`).join("");
+    const next = on && i<seq.length-1 ? legHtml(id,seq[i+1],`Next: to ${Z[seq[i+1]].name}`) : (on && i===seq.length-1 && id!=="NEG" ? legHtml(id,"AIR","Next: to the airport") : "");
+    return `<div class="zone ${on?"":"off"} ${state.open[id]?"open":""}" data-id="${id}" draggable="true">
+      <div class="zhead">
+        <span class="grip" aria-hidden="true" title="Drag to reorder">⋮⋮</span>
+        <div class="mv"><button data-up="${id}" aria-label="Move ${z.name} up">▲</button><button data-down="${id}" aria-label="Move ${z.name} down">▼</button></div>
+        <input type="checkbox" data-inc="${id}" ${on?"checked":""} aria-label="Include ${z.name}">
+        <span class="seq" style="background:${z.color}">${on?i+1:"–"}</span>
+        <button class="zname" data-open="${id}" aria-expanded="${!!state.open[id]}">${z.name}<small>${z.hub}, ${sights.length} sights</small></button>
+        <div class="nights" aria-label="Nights"><button data-n="${id}" data-d="-1" aria-label="One night fewer">−</button><output>${state.nights[id]}</output><button data-n="${id}" data-d="1" aria-label="One night more">+</button></div>
+      </div>
+      <div class="zbody">
+        <p><span class="pill ${r}">${MONTHS[state.month]}: ${RATING[r]}</span></p>
+        <p class="note">${z.note}</p>
+        <table class="sl"><tbody>${rows}</tbody></table>
+        ${next}
+      </div></div>`;
+  }).join("");
+}
+function renderLegs(){
+  const seq = includedOrder();
+  if(!seq.length){ $("#legList").innerHTML = `<p class="note">Tick at least one base to build a route.</p>`; return; }
+  const stops = ["AIR",...seq,"AIR"];
+  const name = (id)=> id==="AIR" ? "Airport" : Z[id].name;
+  let html="";
+  for(let i=0;i<stops.length-1;i++){
+    const a=stops[i], b=stops[i+1];
+    if((a==="AIR"&&b==="NEG")||(a==="NEG"&&b==="AIR")){ html+=`<div class="leg"><div>${name(a)} → ${name(b)}</div><b>Private car</b> 20–30 min<div class="pp-muted">Cost: to verify</div></div>`; continue; }
+    html += legHtml(a,b,`${name(a)} → ${name(b)}`);
+  }
+  $("#legList").innerHTML = html;
+}
+function renderAll(){ renderTotals(); renderSeason(); renderLayerChecks(); renderZones(); renderLegs(); drawOverlay(); drawSights(); drawHubs(); save(); }
+
+function openZone(id,fly){
+  state.open[id]=true; renderZones(); save();
+  if(fly){ const pts = TRIP.sights.filter(s=>s.zone===id).map(s=>[s.lat,s.lng]).concat([[Z[id].lat,Z[id].lng]]);
+    map.fitBounds(L.latLngBounds(pts).pad(0.25),{maxZoom:12}); }
+  const el = document.querySelector(`.zone[data-id="${id}"]`); if(el) el.scrollIntoView({block:"nearest"});
+}
+function move(id,dir){ const i=state.order.indexOf(id), j=i+dir; if(j<0||j>=state.order.length) return; [state.order[i],state.order[j]]=[state.order[j],state.order[i]]; renderAll(); }
+
+/* ===== events ===== */
+document.querySelector(".seg").addEventListener("click",e=>{ const m=e.target.dataset.month; if(m){ state.month=m; renderAll(); }});
+$("#layerChecks").addEventListener("change",e=>{ const t=e.target; if(t.dataset.k) state[t.dataset.k]=t.checked; if(t.dataset.cat) state.cats[t.dataset.cat]=t.checked; renderAll(); });
+$("#zoneList").addEventListener("click",e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  if(t.dataset.open){ const id=t.dataset.open; state.open[id]=!state.open[id]; renderZones(); save(); if(state.open[id]) openZone(id,true); }
+  else if(t.dataset.n){ const id=t.dataset.n; state.nights[id]=Math.max(0,state.nights[id]+Number(t.dataset.d)); renderAll(); }
+  else if(t.dataset.up) move(t.dataset.up,-1);
+  else if(t.dataset.down) move(t.dataset.down,1);
+  else if(t.dataset.sight){ const s=TRIP.sights.find(x=>x.id===t.dataset.sight); map.setView([s.lat,s.lng],13); const mk=sightMarkers[s.id]; if(mk&&sightLayer.hasLayer(mk)) mk.openPopup(); }
+});
+$("#zoneList").addEventListener("change",e=>{ const id=e.target.dataset.inc; if(id){ state.included[id]=e.target.checked; renderAll(); }});
+let dragId=null;
+$("#zoneList").addEventListener("dragstart",e=>{ const z=e.target.closest(".zone"); if(z){ dragId=z.dataset.id; e.dataTransfer.effectAllowed="move"; }});
+$("#zoneList").addEventListener("dragover",e=>{ const z=e.target.closest(".zone"); if(z&&dragId){ e.preventDefault(); document.querySelectorAll(".zone.dragover").forEach(x=>x.classList.remove("dragover")); z.classList.add("dragover"); }});
+$("#zoneList").addEventListener("drop",e=>{ e.preventDefault(); const z=e.target.closest(".zone"); if(!z||!dragId) return;
+  const to=state.order.indexOf(z.dataset.id); state.order.splice(state.order.indexOf(dragId),1); state.order.splice(to,0,dragId); dragId=null; renderAll(); });
+$("#zoneList").addEventListener("dragend",()=>{ dragId=null; document.querySelectorAll(".zone.dragover").forEach(x=>x.classList.remove("dragover")); });
+
+$("#btnExport").onclick=()=>{ const blob=new Blob([JSON.stringify({version:TRIP.version,plan:state},null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="sri-lanka-plan.json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); };
+$("#btnImport").onclick=()=>$("#fileIn").click();
+$("#fileIn").onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(t=>{ try{ const d=JSON.parse(t); state=Object.assign(defaults(), d.plan||d); renderAll(); }catch(err){ alert("This file isn’t a plan exported from this map."); } }); e.target.value=""; };
+$("#btnReset").onclick=()=>{ if(confirm("Reset order, nights and selections to the defaults in this file?")){ state=defaults(); renderAll(); fit(); } };
+function fit(){ const seq=includedOrder(); const pts=(seq.length?seq.map(id=>[Z[id].lat,Z[id].lng]):TRIP.zones.map(z=>[z.lat,z.lng])).concat([[TRIP.airport.lat,TRIP.airport.lng]]); map.fitBounds(L.latLngBounds(pts).pad(0.15)); }
+$("#btnFit").onclick=fit;
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",renderAll);
+
+renderAll(); fit();
+</script>
+</body>
+</html>
